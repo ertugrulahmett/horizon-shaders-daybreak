@@ -17,6 +17,12 @@ file = "material.wgsl"
 files = ["lighting.wgsl", "water.wgsl"]
 name = "Lighting"
 
+[entity]
+# Mobs, players and block entities, lit by the same sun and shadow map as terrain.
+file = "entity.wgsl"
+files = ["lighting.wgsl"]
+name = "Mobs and chests"
+
 [vertex]
 file = "vertex.wgsl"
 name = "Wind and waves"
@@ -247,7 +253,7 @@ default = true
 [[options]]
 id = "relight_entities"
 name = "Mob shadows"
-description = "Mobs, chests and particles take the sun's shadow and the sky's light like terrain does."
+description = "Mobs, players and chests are lit like terrain: the sun's shadow, the sky's light in the shade and the light of blocks. Off leaves them in vanilla's light."
 type = "bool"
 default = true
 

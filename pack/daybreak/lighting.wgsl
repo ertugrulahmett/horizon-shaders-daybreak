@@ -1,5 +1,11 @@
-// Light for the material stage: the shadow map, the sky's light and the light of blocks.
-// The overrides it reads are declared in material.wgsl.
+// Light for the material and entity stages: the shadow map, the sky's light and the light of
+// blocks, so terrain and mobs are lit by the same sun.
+override shadows: bool = true;
+override shadow_softness: u32 = 1u;
+override sun_strength: f32 = 1.0;
+override ambient_strength: f32 = 1.0;
+override block_light_strength: f32 = 1.0;
+override colored_lights: bool = true;
 
 // A face turned to the noon sun gets SUN + SKY, a little over vanilla's full daylight (1), so
 // white blocks stay just under white; one in the shade gets SKY, about half.

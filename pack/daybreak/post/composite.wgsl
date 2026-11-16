@@ -6,55 +6,6 @@ override contrast: f32 = 0.12;
 override saturation: f32 = 1.05;
 override vignette: f32 = 0.25;
 override haze: f32 = 0.6;
-override relight_entities: bool = true;
-
-// Horizon's material stage lights terrain only: mobs, block entities and particles keep
-// vanilla's light, as bright in a tree's shade as in the sun, and stand out against Daybreak's
-// shaded terrain. Here they get the sun's shadow and the sky's blue in the shade, by the same
-// shadow map. Terrain marks itself (`set_surface` in material.wgsl); water lies on the
-// mirrored plane and is left alone, as are bright pixels (flames, glowing eyes).
-fn relight(c: vec3<f32>, uv: vec2<f32>, depth: f32) -> vec3<f32> {
-    if !relight_entities || depth <= 0.0 || frame.dimension != 0 || frame.has_shadow == 0u {
-        return c;
-    }
-    // Indoors, vanilla's own light already darkens what is out of the sky; don't twice.
-    let weight = daylight() * smoothstep(0.3, 0.8, frame.eye_light_smooth.y)
-        * smoothstep(0.0, 0.1, frame.light_direction.y) * (1.0 - frame.rain * 0.8);
-    if weight <= 0.0 || luminance(c) > 0.85 {
-        return c;
-    }
-    if surface_at(vec2<i32>(uv * frame.resolution)).present {
-        return c;
-    }
-    let p = view_position(uv, depth);
-    let dist = length(p);
-    if dist > frame.shadow_distance {
-        return c;
-    }
-    if frame.has_reflection == 1u && abs(p.y + frame.camera_position.y - frame.water_plane) < 0.15 {
-        return c;
-    }
-    // Pushed a little toward the light so a mob doesn't shadow its own sunlit side.
-    let s = shadow_position(p + frame.light_direction * 0.2);
-    if any(s.xy <= vec2<f32>(0.0)) || any(s.xy >= vec2<f32>(1.0)) {
-        return c;
-    }
-    let m = frame.shadow_view_proj;
-    let z = s.z - length(vec3<f32>(m[0].z, m[1].z, m[2].z)) * 0.15;
-    let texel = 1.0 / frame.shadow_resolution;
-    var lit = 0.0;
-    for (var i = 0; i < 4; i++) {
-        let o = vec2<f32>(f32(i & 1), f32(i >> 1u)) * 2.0 - 1.0;
-        lit += textureSampleCompareLevel(shadow_map, shadow_sampler, s.xy + o * texel, z);
-    }
-    lit = mix(lit * 0.25, 1.0, smoothstep(0.85, 1.0, dist / frame.shadow_distance));
-    // In the sun a touch of its warmth, in the shade the sky's blue at the shade's brightness.
-    let sun = direct_light();
-    let warm = mix(vec3<f32>(1.0), sun / max(luminance(sun), 0.01), 0.25);
-    let sky = mix(display_color(frame.sky_color), vec3<f32>(0.9, 0.95, 1.0), 0.3);
-    let shade = sky / max(luminance(sky), 0.01) * 0.58;
-    return c * mix(vec3<f32>(1.0), mix(shade, warm, lit), weight);
-}
 
 // Air between the eye and distant land: it fades toward the sky's colour with distance and
 // takes the sun's warmth on the side the sun is on. What gives the land its depth.
@@ -73,7 +24,7 @@ fn aerial(c: vec3<f32>, uv: vec2<f32>, depth: f32) -> vec3<f32> {
 }
 
 fn post(input: PostInput) -> vec4<f32> {
-    let scene = relight(display_color(input.color.rgb), input.uv, input.depth);
+    let scene = display_color(input.color.rgb);
     var light = linear_color(aerial(scene, input.uv, input.depth));
     light += textureSampleLevel(bloom_b, linear_sampler, input.uv, 0.0).rgb * bloom;
     light += textureSampleLevel(rays, linear_sampler, input.uv, 0.0).rgb;
