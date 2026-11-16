@@ -1,0 +1,48 @@
+# Publishes the manifest's version as a GitHub release: checks and packs the pack as the
+# check does, tags the commit v<version> and attaches daybreak-<version>.hshader, with
+# docs/releases/v<version>.md as the notes. Run it from the Actions tab (Run workflow) on
+# main, or push the tag yourself; either way the tag must match the manifest's version.
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  # The same Horizon as check.yml.
+  HORIZON_REV: ee06d18c391102428fa5dded4f3d9d091ea361f0
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/horizon-shader
+          key: horizon-shader-${{ env.HORIZON_REV }}
+      - name: Install horizon-shader
+        run: |
+          command -v horizon-shader || cargo install --git https://github.com/horizon-rust/horizon \
+            --rev "$HORIZON_REV" horizon-shader-api --locked
+      - name: The tag matches the manifest
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' pack/daybreak/horizon-shaders.toml)
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, manifest $version"; exit 1; }
+          fi
+          test -f "docs/releases/v$version.md" || { echo "no docs/releases/v$version.md"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - run: horizon-shader check pack/daybreak
+      - run: horizon-shader pack pack/daybreak
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Run from a branch, this creates the tag on the commit it ran on.
+          gh release create "v$VERSION" "pack/daybreak-$VERSION.hshader" --target "$GITHUB_SHA" \
+            --title "Daybreak $VERSION" --notes-file "docs/releases/v$VERSION.md"
