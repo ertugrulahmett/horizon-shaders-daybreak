@@ -1,9 +1,11 @@
-# Pushing a tag v<version> checks and packs the pack as the check does, and publishes
-# daybreak-<version>.hshader as that tag's GitHub release, with docs/releases/v<version>.md
-# as its notes. The tag must match the manifest's version.
+# Publishes the manifest's version as a GitHub release: checks and packs the pack as the
+# check does, tags the commit v<version> and attaches daybreak-<version>.hshader, with
+# docs/releases/v<version>.md as the notes. Run it from the Actions tab (Run workflow) on
+# main, or push the tag yourself; either way the tag must match the manifest's version.
 name: release
 
 on:
+  workflow_dispatch:
   push:
     tags: ["v*"]
 
@@ -30,8 +32,10 @@ jobs:
       - name: The tag matches the manifest
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' pack/daybreak/horizon-shaders.toml)
-          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, manifest $version"; exit 1; }
-          test -f "docs/releases/$GITHUB_REF_NAME.md" || { echo "no docs/releases/$GITHUB_REF_NAME.md"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, manifest $version"; exit 1; }
+          fi
+          test -f "docs/releases/v$version.md" || { echo "no docs/releases/v$version.md"; exit 1; }
           echo "VERSION=$version" >> "$GITHUB_ENV"
       - run: horizon-shader check pack/daybreak
       - run: horizon-shader pack pack/daybreak
@@ -39,5 +43,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "pack/daybreak-$VERSION.hshader" \
-            --title "Daybreak $VERSION" --notes-file "docs/releases/$GITHUB_REF_NAME.md" --verify-tag
+          # Run from a branch, this creates the tag on the commit it ran on.
+          gh release create "v$VERSION" "pack/daybreak-$VERSION.hshader" --target "$GITHUB_SHA" \
+            --title "Daybreak $VERSION" --notes-file "docs/releases/v$VERSION.md"
