@@ -22,7 +22,7 @@ Horizon (see [What 0.3 changes](#what-03-changes)).
 | Sun and moon shadows | 1536² distorted shadow map over 64 blocks, normal-offset lookup, slope-scaled bias, 1/4/9-tap grid PCF (smooth edges, no noise) | the shadow pass plus up to 9 compare taps per pixel |
 | Day and night light | own sun, sky and block light, wrapped diffuse, with vanilla's face shade taken back out | inside terrain's own draw: no extra pass |
 | Coloured block light | soul fire blue, redstone red, copper green, froglights… (`[[lights]]`, only light of another colour than the warm default) | one 3D texture read |
-| Mobs and chests | mobs, players, armour stands and block entities lit by the same sun, shadow map, sky and block light as terrain (shader API 0.2's `[entity]` stage) | inside the entities' own draw: up to 9 compare taps per pixel |
+| Mob shadows | mobs, chests and particles take the sun's shadow and the sky's tint in the composite, by a terrain mask (`set_surface`) and the same shadow map | 4 compare taps, only on non-terrain pixels |
 | Light from held torches | Horizon's dynamic lights, in the item's colour, per pixel | Horizon's own: none from the pack |
 | Waving leaves and plants | vertex stage, continuous across two-block plants | a few `sin`s per vertex |
 | Water | rolling waves, Fresnel reflection (screen-space, or the full water mirror), refraction, depth absorption, sun glint | 12 + 4 steps per pixel of water; the mirror is a half-resolution pass |
@@ -90,11 +90,6 @@ among them, are refused since 2026-11-13):
   on the way in and encoding on the way out; bloom is filtered and added in linear light, and
   highlights above white are kept for HDR displays. Ported by
   [@Abeansits](https://github.com/Abeansits) ([#1](https://github.com/hildlabs/horizon-shaders/pull/1)).
-- **Mobs lit like terrain.** 0.2 relit mobs and chests in the composite, from a mask every
-  block had to write. The new `[entity]` stage lights them in their own draw with the terrain's
-  lighting: their sunlit and shaded sides, the light of torches and coloured light on them, and
-  no mask for the terrain to write. Dropped items and particles keep Horizon's light until
-  Horizon draws them through the stage too.
 
 ## Try it
 
@@ -126,7 +121,6 @@ horizon-shader pack pack/daybreak     # writes daybreak-<version>.hshader
 | `common.wgsl` | shared: material ids, the light's colour, noise, the tone shoulder, the water wave |
 | `vertex.wgsl` | wind on leaves and plants, waves on water |
 | `material.wgsl`, `lighting.wgsl`, `water.wgsl` | how terrain and water are lit |
-| `entity.wgsl` (with `lighting.wgsl`) | how mobs, players and block entities are lit |
 | `sky.wgsl` | the sky's colour |
 | `post/*.wgsl` | bloom prefilter → bloom blur → sun rays → composite |
 
