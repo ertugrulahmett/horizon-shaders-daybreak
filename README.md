@@ -82,8 +82,8 @@ fell to a third. Most of it was not the GPU but the CPU, in three places, which 
   sections for the shadow pass to cull and draw; 1536 texels over it are sharper near you than
   0.2's 2048 over 96. Beyond it, the sky light still says where the sun reaches.
 
-And for Horizon's shader API 0.2, which current Horizon builds require (0.1 packs, Daybreak 0.2
-among them, are refused since 2026-11-13):
+Daybreak 0.4 is 0.3 for Horizon's shader API 0.2, which Horizon's main branch requires since
+2026-11-15 (0.1 packs are refused there; the Nightly of 2026-11-13 still draws only 0.1):
 
 - **Linear light.** API 0.2 hands every stage linear colours and takes linear colours back.
   Daybreak keeps its look by lighting and grading in the same display space as before, decoding
@@ -93,8 +93,9 @@ among them, are refused since 2026-11-13):
 
 ## Try it
 
-1. Install a current Horizon build (Nightly from 2026-11-13 or newer): Daybreak 0.3 needs shader
-   API 0.2, and those builds refuse Daybreak 0.2 and older.
+1. Install a Horizon build that draws shader API 0.2 (Nightlies after 2026-11-13; the Nightly of
+   2026-11-13 still draws only 0.1, so use Daybreak 0.3 there). Daybreak 0.4 needs API 0.2, and
+   those builds refuse Daybreak 0.3 and older.
 2. Install Daybreak from the launcher's mod browser (Shader packs), or put
    `daybreak-<version>.hshader` from a [release](https://github.com/hildlabs/horizon-shaders/releases)
    into `shaderpacks/` beside your `options.txt`.
