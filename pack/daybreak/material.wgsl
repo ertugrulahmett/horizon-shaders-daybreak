@@ -1,5 +1,5 @@
 // The lit colour of each point of terrain, before Horizon's alpha test and fog.
-// Vanilla's own is albedo * tint * lightmap; Daybreak lights the Overworld itself, with the
+// Vanilla's own is albedo * shaded_tint * lightmap; Daybreak lights the Overworld itself, with the
 // sun or moon (shadowed), the sky and blocks, and leaves other dimensions close to vanilla.
 override shadows: bool = true;
 override shadow_softness: u32 = 1u;
@@ -18,7 +18,10 @@ fn is_foliage(material: u32) -> bool {
 
 fn material(input: MaterialInput) -> Surface {
     let albedo = display_color(input.albedo.rgb);
-    let vertex_tint = display_color(input.tint.rgb);
+    // `shaded_tint` (the biome colour with vanilla's face shade and ambient occlusion in it) comes
+    // with the vertex for free; reading `tint`, `shade` or `ao` apart would make terrain take a
+    // third again its memory, so the face shade is divided back out below instead.
+    let vertex_tint = display_color(input.shaded_tint.rgb);
     let colored = display_color(input.colored_light);
     // Marks the pixel as terrain Daybreak lit itself, for the composite's `relight_entities`
     // (translucent terrain stores nothing). Nothing reads it without shadows, so it isn't written.

@@ -95,7 +95,9 @@ fn screen_reflection(p: vec3<f32>, r: vec3<f32>, jitter: f32, fallback: vec3<f32
 fn water_surface(input: MaterialInput) -> vec4<f32> {
     let world = input.position + frame.camera_position;
     let to_eye = normalize(-input.position);
-    let top = input.face == 1u;
+    // The surface (also a flowing slope, and seen from below), by its normal: reading `face`
+    // would make terrain take a third again its memory.
+    let top = abs(input.normal.y) > 0.5;
     var n = input.normal;
     if top {
         n = water_normal(world.xz, frame.time);
@@ -114,7 +116,7 @@ fn water_surface(input: MaterialInput) -> vec4<f32> {
     let up = vec3<f32>(0.0, 1.0, 0.0);
     let ambient = ambient_light(input.position, up, input.light, display_color(input.colored_light));
     let sun = direct_light() * sun_strength * sun_shadow(input.position, up, frame.light_direction.y);
-    let body = display_color(input.albedo.rgb) * display_color(input.tint.rgb) * (ambient + sun * 0.4);
+    let body = display_color(input.albedo.rgb) * display_color(input.shaded_tint.rgb) * (ambient + sun * 0.4);
     // Light is absorbed red first, then green: deep water turns blue, then the water's colour.
     let reach = mix(2.0, 14.0, water_clarity);
     let absorb = exp(-thickness / reach * vec3<f32>(2.2, 0.9, 0.6));

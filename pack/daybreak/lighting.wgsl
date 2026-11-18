@@ -123,7 +123,7 @@ fn underworld_light(p: vec3<f32>, light: vec2<f32>, colored: vec3<f32>) -> vec3<
     return glow + block_light(p, light.x, colored) * 1.1 + darkest();
 }
 
-// The shade vanilla bakes into a face's tint (0.5 down, 1 up, 0.8 north and south, 0.6 east
+// The shade vanilla bakes into a face's shaded_tint (0.5 down, 1 up, 0.8 north and south, 0.6 east
 // and west), to take it back out where Daybreak lights the face itself.
 fn face_shade(n: vec3<f32>) -> f32 {
     let a = abs(n);
