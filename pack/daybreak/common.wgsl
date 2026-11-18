@@ -10,8 +10,20 @@ const MAT_VINE: u32 = 5u;
 
 const MOON_COLOR: vec3<f32> = vec3<f32>(0.32, 0.42, 0.72);
 
+// Daybreak's lighting and grading were designed in display space. API 0.2 passes
+// linear colours, so encode on entry to that existing look and decode on exit.
+// The functions also accept values above white, which HDR and bright lights can use.
+fn display_color(c: vec3<f32>) -> vec3<f32> {
+    return pow(max(c, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.2));
+}
+
+fn linear_color(c: vec3<f32>) -> vec3<f32> {
+    return pow(max(c, vec3<f32>(0.0)), vec3<f32>(2.2));
+}
+
 fn luminance(c: vec3<f32>) -> f32 {
-    return dot(c, vec3<f32>(0.2126, 0.7152, 0.0722));
+    // This is a display-space artistic measure used by the original grade.
+    return dot(c, frame.luminance);
 }
 
 // 1 by day, 0 by night, eased across the horizon.
@@ -44,10 +56,10 @@ fn ign(pixel: vec2<f32>) -> f32 {
     return fract(52.9829189 * fract(dot(pixel, vec2<f32>(0.06711056, 0.00583715))));
 }
 
-// A soft shoulder above 0.8, so bright light rolls off into white instead of clipping.
+// A soft shoulder above 0.8. It keeps growing so highlights above SDR white survive HDR.
 fn shoulder(c: vec3<f32>) -> vec3<f32> {
     let over = max(c - vec3<f32>(0.8), vec3<f32>(0.0));
-    return min(c, vec3<f32>(0.8)) + 0.2 * (vec3<f32>(1.0) - exp(-over * 5.0));
+    return min(c, vec3<f32>(0.8)) + 0.2 * (vec3<f32>(1.0) - exp(-over * 3.75)) + 0.25 * over;
 }
 
 // The height of water waves at world `xz`, 0..1 (0 the crest): two crossing swells and a

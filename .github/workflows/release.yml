@@ -14,7 +14,7 @@ permissions:
 
 env:
   # The same Horizon as check.yml.
-  HORIZON_REV: ee06d18c391102428fa5dded4f3d9d091ea361f0
+  HORIZON_REV: 8989a510ff75beb69cd2962b6bb6e0d31f3cc962
 
 jobs:
   release:

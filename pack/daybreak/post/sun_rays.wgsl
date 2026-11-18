@@ -77,5 +77,5 @@ fn post(input: PostInput) -> vec4<f32> {
             light += (color * (core + halo + streak) + ghosts * luminance(color)) * seen * sun_glare;
         }
     }
-    return vec4<f32>(light * strength * facing, 1.0);
+    return vec4<f32>(linear_color(light * strength * facing), 1.0);
 }

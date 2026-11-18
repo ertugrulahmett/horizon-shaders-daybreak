@@ -51,7 +51,7 @@ fn relight(c: vec3<f32>, uv: vec2<f32>, depth: f32) -> vec3<f32> {
     // In the sun a touch of its warmth, in the shade the sky's blue at the shade's brightness.
     let sun = direct_light();
     let warm = mix(vec3<f32>(1.0), sun / max(luminance(sun), 0.01), 0.25);
-    let sky = mix(frame.sky_color, vec3<f32>(0.9, 0.95, 1.0), 0.3);
+    let sky = mix(display_color(frame.sky_color), vec3<f32>(0.9, 0.95, 1.0), 0.3);
     let shade = sky / max(luminance(sky), 0.01) * 0.58;
     return c * mix(vec3<f32>(1.0), mix(shade, warm, lit), weight);
 }
@@ -66,17 +66,18 @@ fn aerial(c: vec3<f32>, uv: vec2<f32>, depth: f32) -> vec3<f32> {
     let dist = length(p);
     let mu = max(dot(p / dist, frame.sun_direction), 0.0);
     let day = daylight();
-    var air = mix(frame.fog_color, frame.sky_color, 0.35);
+    var air = mix(display_color(frame.fog_color), display_color(frame.sky_color), 0.35);
     air += vec3<f32>(1.0, 0.72, 0.45) * pow(mu, 6.0) * 0.45 * day;
     let amount = (1.0 - exp(-dist * 0.0035 * haze)) * mix(0.35, 0.75, day) * (1.0 + frame.rain * 0.5);
     return mix(c, air, clamp(amount, 0.0, 0.85));
 }
 
 fn post(input: PostInput) -> vec4<f32> {
-    var c = relight(input.color.rgb, input.uv, input.depth);
-    c = aerial(c, input.uv, input.depth);
-    c += textureSampleLevel(bloom_b, linear_sampler, input.uv, 0.0).rgb * bloom;
-    c += textureSampleLevel(rays, linear_sampler, input.uv, 0.0).rgb;
+    let scene = relight(display_color(input.color.rgb), input.uv, input.depth);
+    var light = linear_color(aerial(scene, input.uv, input.depth));
+    light += textureSampleLevel(bloom_b, linear_sampler, input.uv, 0.0).rgb * bloom;
+    light += textureSampleLevel(rays, linear_sampler, input.uv, 0.0).rgb;
+    var c = display_color(light);
 
     // Deep in a cave, the eye opens a little; under the open sky, it doesn't.
     let eye = frame.eye_light_smooth;
@@ -87,9 +88,10 @@ fn post(input: PostInput) -> vec4<f32> {
     c = mix(c, c * vec3<f32>(0.45, 0.8, 0.95), frame.in_water * 0.7);
 
     c = shoulder(c);
-    // Contrast as an S-curve around the middle grey, so blacks and whites stay where they are.
-    c = clamp(c, vec3<f32>(0.0), vec3<f32>(1.0));
-    c = mix(c, c * c * (3.0 - 2.0 * c), contrast);
+    // Contrast is a display-space look for the 0..1 range. Leave highlights above
+    // white alone: the API 0.2 float frame can carry them through to the tone curve.
+    let graded = c * c * (3.0 - 2.0 * c);
+    c = mix(c, select(graded, c, c > vec3<f32>(1.0)), contrast);
     c = mix(vec3<f32>(luminance(c)), c, saturation);
 
     if vignette > 0.0 {
@@ -99,5 +101,5 @@ fn post(input: PostInput) -> vec4<f32> {
     }
     // Half a step of 8-bit noise hides banding in skies and glows.
     c += (ign(input.pixel) - 0.5) / 255.0;
-    return vec4<f32>(clamp(c, vec3<f32>(0.0), vec3<f32>(1.0)), input.color.a);
+    return vec4<f32>(linear_color(c), 1.0);
 }

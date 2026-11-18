@@ -6,8 +6,8 @@ on:
   pull_request:
 
 env:
-  # Horizon's main with #8557 ([shadow] option, resolution_option, distance_option).
-  HORIZON_REV: ee06d18c391102428fa5dded4f3d9d091ea361f0
+  # Horizon main on 2026-11-16: shader API 0.2 with the [entity] stage (0.1 retired in #15886).
+  HORIZON_REV: 8989a510ff75beb69cd2962b6bb6e0d31f3cc962
 
 jobs:
   check:

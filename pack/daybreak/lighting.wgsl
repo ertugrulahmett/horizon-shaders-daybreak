@@ -75,7 +75,7 @@ fn ambient_light(p: vec3<f32>, n: vec3<f32>, light: vec2<f32>, colored: vec3<f32
     // The sky: bluish by day, a dim blue at night, greyer in rain.
     // The shade takes the sky's blue: against the warm sun, that is what makes daylight look
     // like daylight.
-    let day_sky = mix(frame.sky_color, vec3<f32>(0.9, 0.95, 1.0), 0.3) * SKY_INTENSITY;
+    let day_sky = mix(display_color(frame.sky_color), vec3<f32>(0.9, 0.95, 1.0), 0.3) * SKY_INTENSITY;
     let night_sky = vec3<f32>(0.045, 0.06, 0.11);
     var sky = mix(night_sky, day_sky, day);
     sky = mix(sky, vec3<f32>(luminance(sky)), frame.rain * 0.6);
@@ -102,7 +102,7 @@ fn block_light(p: vec3<f32>, level: f32, colored: vec3<f32>) -> vec3<f32> {
     // Most of the world has no block light: skip the 3D texture read there.
     if colored_lights && level > 0.0 {
         let c = block_light_color(p);
-        tint = mix(tint, c.rgb, clamp(c.a, 0.0, 1.0));
+        tint = mix(tint, display_color(c.rgb), clamp(c.a, 0.0, 1.0));
     }
     return (tint * pow(level, 2.2) * 1.5 + colored) * block_light_strength;
 }
@@ -116,14 +116,14 @@ fn darkest() -> vec3<f32> {
 // the biome's fog (crimson red, warped teal, soul valley blue, basalt grey, the End's purple),
 // under the light of blocks, which carries most of the picture.
 fn underworld_light(p: vec3<f32>, light: vec2<f32>, colored: vec3<f32>) -> vec3<f32> {
-    let fog = frame.fog_color;
+    let fog = display_color(frame.fog_color);
     let hue = fog / max(max(fog.r, max(fog.g, fog.b)), 0.02);
     let strength = select(0.2, 0.3, frame.dimension == 1);
     let glow = mix(vec3<f32>(1.0), hue, 0.55) * strength * ambient_strength;
     return glow + block_light(p, light.x, colored) * 1.1 + darkest();
 }
 
-// The shade vanilla bakes into a face's tint (0.5 down, 1 up, 0.8 north and south, 0.6 east
+// The shade vanilla bakes into a face's shaded_tint (0.5 down, 1 up, 0.8 north and south, 0.6 east
 // and west), to take it back out where Daybreak lights the face itself.
 fn face_shade(n: vec3<f32>) -> f32 {
     let a = abs(n);

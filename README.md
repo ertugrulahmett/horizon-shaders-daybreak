@@ -2,7 +2,7 @@
 
 **Daybreak** is a shader pack for [Horizon](https://github.com/horizon-rust/horizon), the Rust
 reimplementation of Minecraft: Java Edition. It's written in WGSL against Horizon's own shader
-API (0.1). It runs inside Horizon's renderer and doesn't replace it, so Horizon's culling,
+API (0.2). It runs inside Horizon's renderer and doesn't replace it, so Horizon's culling,
 batching, LOD and meshing stay in charge, and the pack adds as little GPU time as possible.
 
 ![Sunset over the sea with Daybreak: sun glare, sun rays and reflections on the waves](docs/screenshots/sunset.jpg)
@@ -82,10 +82,20 @@ fell to a third. Most of it was not the GPU but the CPU, in three places, which 
   sections for the shadow pass to cull and draw; 1536 texels over it are sharper near you than
   0.2's 2048 over 96. Beyond it, the sky light still says where the sun reaches.
 
+Daybreak 0.4 is 0.3 for Horizon's shader API 0.2, which Horizon's main branch requires since
+2026-11-15 (0.1 packs are refused there; the Nightly of 2026-11-13 still draws only 0.1):
+
+- **Linear light.** API 0.2 hands every stage linear colours and takes linear colours back.
+  Daybreak keeps its look by lighting and grading in the same display space as before, decoding
+  on the way in and encoding on the way out; bloom is filtered and added in linear light, and
+  highlights above white are kept for HDR displays. Ported by
+  [@Abeansits](https://github.com/Abeansits) ([#1](https://github.com/hildlabs/horizon-shaders/pull/1)).
+
 ## Try it
 
-1. Install the Horizon launcher and a Nightly from 2026-11-05 or newer (Daybreak 0.2 needs
-   Horizon's `[shadow]` options; 0.1.1 runs on Nightlies from 2026-11-03).
+1. Install a Horizon build that draws shader API 0.2 (Nightlies after 2026-11-13; the Nightly of
+   2026-11-13 still draws only 0.1, so use Daybreak 0.3 there). Daybreak 0.4 needs API 0.2, and
+   those builds refuse Daybreak 0.3 and older.
 2. Install Daybreak from the launcher's mod browser (Shader packs), or put
    `daybreak-<version>.hshader` from a [release](https://github.com/hildlabs/horizon-shaders/releases)
    into `shaderpacks/` beside your `options.txt`.
@@ -102,7 +112,7 @@ fell to a third. Most of it was not the GPU but the CPU, in three places, which 
 ## Develop
 
 ```sh
-cargo install --git https://github.com/horizon-rust/horizon --rev ee06d18c391102428fa5dded4f3d9d091ea361f0 horizon-shader-api --locked
+cargo install --git https://github.com/horizon-rust/horizon --rev 85b5bcca7c79bb470b90bdb5914b413aa66fe7ae horizon-shader-api --locked
 horizon-shader check pack/daybreak    # what the game, the launcher and the registry check
 horizon-shader pack pack/daybreak     # writes daybreak-<version>.hshader
 ```
@@ -116,7 +126,7 @@ horizon-shader pack pack/daybreak     # writes daybreak-<version>.hshader
 | `post/*.wgsl` | bloom prefilter → bloom blur → sun rays → composite |
 
 The API reference is Horizon's
-[`docs/api/shaders-reference.md`](https://github.com/horizon-rust/horizon/blob/main/docs/api/shaders-reference.md).
+[`docs/api/shaders-reference-0.2.md`](https://github.com/horizon-rust/horizon/blob/main/docs/api/shaders-reference-0.2.md).
 
 ## Credits
 

@@ -2,6 +2,7 @@
 // Thirteen bilinear taps on two rings reach about 20 of the picture's pixels in one pass.
 fn post(input: PostInput) -> vec4<f32> {
     let texel = 1.0 / vec2<f32>(textureDimensions(bloom_a));
+    // The API 0.2 target contains linear light: filter it before encoding for the grade.
     var sum = textureSampleLevel(bloom_a, linear_sampler, input.uv, 0.0).rgb * 0.2;
     for (var i = 0; i < 6; i++) {
         let a = f32(i) * 1.0471976;

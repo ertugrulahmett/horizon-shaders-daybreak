@@ -7,7 +7,7 @@ fn post(input: PostInput) -> vec4<f32> {
     for (var i = 0; i < 4; i++) {
         let corner = vec2<f32>(f32(i & 1), f32(i >> 1u)) * 2.0 - 1.0;
         let uv = input.uv + corner * px;
-        let c = textureSampleLevel(previous, linear_sampler, uv, 0.0).rgb;
+        let c = display_color(textureSampleLevel(previous, linear_sampler, uv, 0.0).rgb);
         let l = luminance(c);
         // Only the brightest part glows; the open sky far less than lights and the sun. White
         // things (clouds, snow, quartz) glow less than coloured light sources of the same
@@ -21,5 +21,5 @@ fn post(input: PostInput) -> vec4<f32> {
         sum += bright * w;
         weight += w;
     }
-    return vec4<f32>(sum / weight, 1.0);
+    return vec4<f32>(linear_color(sum / weight), 1.0);
 }

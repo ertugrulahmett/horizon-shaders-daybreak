@@ -4,10 +4,10 @@
 override sky_style: f32 = 0.8;
 
 fn sky(input: SkyInput) -> vec4<f32> {
-    let vanilla = input.color;
     if frame.dimension != 0 || sky_style <= 0.0 {
-        return vanilla;
+        return input.color;
     }
+    let vanilla = vec4<f32>(display_color(input.color.rgb), input.color.a);
     let d = input.direction;
     let up = max(d.y, 0.0);
     let day = daylight();
@@ -30,5 +30,5 @@ fn sky(input: SkyInput) -> vec4<f32> {
 
     // Vanilla's colour at the horizon itself, ours from a little above it.
     let blend = smoothstep(0.0, 0.2, d.y) * sky_style;
-    return vec4<f32>(mix(vanilla.rgb, clamp(c, vec3<f32>(0.0), vec3<f32>(1.0)), blend), vanilla.a);
+    return vec4<f32>(linear_color(mix(vanilla.rgb, c, blend)), vanilla.a);
 }
