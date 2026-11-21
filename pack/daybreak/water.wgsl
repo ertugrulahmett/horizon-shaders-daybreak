@@ -1,33 +1,76 @@
 // Water's surface for the material stage: waves, reflection, refraction and the sun's glint.
 
-// How much of a wave of `wavelength` blocks a pixel covering `footprint` blocks still shows:
-// finer than about two pixels it can only alias, into moire and sparkle, so it fades out.
-fn wave_detail(wavelength: f32, footprint: f32) -> f32 {
-    return 1.0 - smoothstep(0.25 * wavelength, 0.5 * wavelength, footprint);
+// Precision-safe 2D hash returning 0..1 without large-coordinate sine artifacts.
+fn water_hash(p: vec2<f32>) -> f32 {
+    var p3 = fract(vec3<f32>(p.x, p.y, p.x) * 0.1031);
+    p3 += dot(p3, p3.yzx + vec3<f32>(33.33));
+    return fract((p3.x + p3.y) * p3.z);
 }
 
-// The wave's normal at world `xz`, from the slope of `water_wave` (its swell and its chop, by
-// their derivatives) plus a finer ripple that only bends the light. Each fades out where a
-// pixel covers `footprint` blocks of surface, too many for its wavelength.
-fn water_normal(xz: vec2<f32>, t: f32, footprint: f32) -> vec3<f32> {
+// Analytical gradient of quintic-interpolated 2D value noise, smooth across cell borders.
+fn water_noise_grad(p: vec2<f32>) -> vec2<f32> {
+    let i = floor(p);
+    let f = fract(p);
+    let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    let du = 30.0 * f * f * (f * (f - 2.0) + 1.0);
+
+    let a = water_hash(i);
+    let b = water_hash(i + vec2<f32>(1.0, 0.0));
+    let c = water_hash(i + vec2<f32>(0.0, 1.0));
+    let d = water_hash(i + vec2<f32>(1.0, 1.0));
+
+    let k1 = b - a;
+    let k2 = c - a;
+    let k3 = a - b - c + d;
+    return du * (vec2<f32>(k1, k2) + k3 * u.yx);
+}
+
+fn rotate2(v: vec2<f32>, cs: vec2<f32>) -> vec2<f32> {
+    return vec2<f32>(v.x * cs.x - v.y * cs.y, v.x * cs.y + v.y * cs.x);
+}
+
+fn water_ripple(xz: vec2<f32>, scale: f32, cs: vec2<f32>, shift: vec2<f32>) -> vec2<f32> {
+    let g = water_noise_grad(rotate2(xz, cs) * scale + shift);
+    return rotate2(g, vec2<f32>(cs.x, -cs.y));
+}
+
+// The wave's normal at world `xz`, combining analytical swell slopes with filtered multi-octave
+// ripples. Each octave fades smoothly with the projected pixel footprint so distant water
+// never aliases into Moiré rings.
+fn water_normal(xz: vec2<f32>, t: f32, dist: f32, view_y: f32) -> vec3<f32> {
     if !water_waves {
         return vec3<f32>(0.0, 1.0, 0.0);
     }
-    let a = xz.x * 0.9 + t * 1.3;
-    let b = xz.y * 0.7 + t * 1.1;
-    let c = (xz.x + xz.y) * 1.7 - t * 2.1;
-    let swell = wave_detail(7.0, footprint);
-    let chop = wave_detail(2.6, footprint);
-    let fine = wave_detail(1.4, footprint);
-    // `water_wave`'s slope: 0.5 - (swell + chop) / 3.
-    let dx = -(0.9 * cos(a) * sin(b) * swell + 0.85 * cos(c) * chop) / 3.0;
-    let dz = -(0.7 * sin(a) * cos(b) * swell + 0.85 * cos(c) * chop) / 3.0;
-    let ripple = vec2<f32>(
-        sin(xz.x * 4.3 + xz.y * 1.7 + t * 3.1),
-        sin(xz.y * 3.9 - xz.x * 2.3 + t * 2.7),
-    ) * 0.035 * fine;
-    // The surface sinks by `water_wave`, so its slope is the negative.
-    let slope = vec2<f32>(dx, dz) * WATER_AMPLITUDE * 2.5 - ripple;
+    let footprint = dist * 0.0018 / max(abs(view_y), 0.05);
+    var slope = vec2<f32>(0.0);
+
+    let a0 = footprint * 0.9;
+    let f0 = exp(-(a0 * a0));
+    if f0 > 0.002 {
+        let swell_grad = vec2<f32>(0.42, 0.25) * (cos(dot(xz, vec2<f32>(0.42, 0.25)) + t * 1.1) * 0.225)
+            + vec2<f32>(-0.31, 0.58) * (cos(dot(xz, vec2<f32>(-0.31, 0.58)) + t * 1.45) * 0.175)
+            + vec2<f32>(0.67, -0.52) * (cos(dot(xz, vec2<f32>(0.67, -0.52)) - t * 1.85) * 0.10);
+        slope -= swell_grad * (WATER_AMPLITUDE * 1.2 * f0);
+    }
+
+    let a1 = footprint * 2.2;
+    let f1 = exp(-(a1 * a1));
+    if f1 > 0.002 {
+        slope -= water_ripple(xz, 1.8, vec2<f32>(0.8, 0.6), vec2<f32>(t * 0.55, -t * 0.35)) * (0.045 * f1);
+    }
+
+    let a2 = footprint * 4.5;
+    let f2 = exp(-(a2 * a2));
+    if f2 > 0.002 {
+        slope -= water_ripple(xz, 3.7, vec2<f32>(0.28, -0.96), vec2<f32>(-t * 0.45, t * 0.70)) * (0.032 * f2);
+    }
+
+    let a3 = footprint * 9.0;
+    let f3 = exp(-(a3 * a3));
+    if f3 > 0.002 {
+        slope -= water_ripple(xz, 7.5, vec2<f32>(-0.8, 0.6), vec2<f32>(t * 0.80, t * 0.65)) * (0.016 * f3);
+    }
+
     return normalize(vec3<f32>(slope.x, 1.0, slope.y));
 }
 
@@ -106,17 +149,14 @@ fn screen_reflection(p: vec3<f32>, r: vec3<f32>, jitter: f32, fallback: vec3<f32
 
 fn water_surface(input: MaterialInput) -> vec4<f32> {
     let world = input.position + frame.camera_position;
+    let dist = length(input.position);
     let to_eye = normalize(-input.position);
     // The surface (also a flowing slope, and seen from below), by its normal: reading `face`
     // would make terrain take a third again its memory.
     let top = abs(input.normal.y) > 0.5;
-    // Blocks of surface one pixel covers: the pixel's angle at this distance, stretched by how
-    // flat the view meets the water.
-    let pixel_angle = 2.0 / (frame.projection[1][1] * frame.resolution.y);
-    let footprint = length(input.position) * pixel_angle / max(abs(to_eye.y), 0.05);
     var n = input.normal;
     if top {
-        n = water_normal(world.xz, frame.time, footprint);
+        n = water_normal(world.xz, frame.time, dist, to_eye.y);
         // Seen from below, the surface faces down.
         n = select(n, -n, input.normal.y < 0.0);
     }
@@ -126,7 +166,7 @@ fn water_surface(input: MaterialInput) -> vec4<f32> {
     let texel = vec2<i32>(min(bent * behind_size, behind_size - 1.0));
     let behind = display_color(textureLoad(opaque_color, texel, 0).rgb);
     let behind_distance = distance_at(bent, textureLoad(opaque_depth, texel, 0));
-    let thickness = max(behind_distance - length(input.position), 0.0);
+    let thickness = max(behind_distance - dist, 0.0);
 
     // The water's own colour (the biome's tint over its texture) in the light around it.
     let up = vec3<f32>(0.0, 1.0, 0.0);
@@ -158,18 +198,13 @@ fn water_surface(input: MaterialInput) -> vec4<f32> {
         mirrored = textureSampleLevel(reflection, reflection_sampler, uv, 0.0).rgb;
     } else if screen_reflections && top && amount > 0.02 {
         // Looking almost straight down, the reflection is a few percent: not worth the march.
-        // No per-pixel jitter: under a shader pack Horizon runs no TAA to average it, so it
-        // stays as noise.
-        mirrored = screen_reflection(input.position, r, 0.5, mirrored);
+        mirrored = screen_reflection(input.position, r, ign(input.screen * frame.resolution), mirrored);
     }
     color = display_color(mix(linear_color(color), mirrored, amount));
 
     // The sun's glint.
     let h = normalize(frame.light_direction + to_eye);
-    // A highlight this sharp sparkles where one pixel covers many wave slopes: it widens with
-    // the footprint and keeps its energy.
-    let shine = 400.0 / (1.0 + 60.0 * footprint * footprint);
-    let glint = pow(max(dot(n, h), 0.0), shine) * 4.0 * (shine + 2.0) / 402.0;
+    let glint = pow(max(dot(n, h), 0.0), 400.0) * 4.0;
     color += sun * glint;
     return vec4<f32>(linear_color(shoulder(color)), 1.0);
 }
